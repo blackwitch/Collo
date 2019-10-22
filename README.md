@@ -1,5 +1,7 @@
 # Collocō
 
+[README in Korean](README_KR.md)
+
 ## Collo is short for Collocō. 
 
 This project can help you to collect distributed data into a repository easily even if the data is in anywhere with only simple settings.

@@ -57,6 +57,15 @@ For example, You can used like this "15@__daysago as date" when you want to get 
 |@__lastInstanceNumberByDay_xxx|int|This keyword is almost same with @__lastNumber_xxx. But this value will be initialized by 0 on every 0 AM. It'll be useful to read all or some under having conditions when you do repetitive tasks every day.||
 
 
+#### Using results from get_query
+
+Results what you get from "get_query" are used by parameters for "set_query". And that will be written in a repogitory. Results is made by JSON format. You can put prefix "@" in front of the name of key. And you can use it by parameter of "set_query".
+
+For example, suppose the result is [{ "id" : "AxdfdsX$AS", "name" : "peter"}, { "id" : "Ecxsdw$daDS", "name" : "eric"}]. 
+And "set_query" is 'insert into tableA(column_id, column_name) values (?, ?)' and "set_query_param" is '@id, @name'. 
+Keys are id and name in this result. 
+Collo will insert the values "AxdfdsX$AS", "peter" / "Ecxsdw$daDS", "eric" in tableA.
+
 #### Etc
 
 |keyword|type|desc|caution|
@@ -106,3 +115,10 @@ Let's see a MSSQL Sample.
   <b>"set_query_param"</b> : '@__today as datetime_yyyymmdd, @world as string, @index as int, @name as string, @address as string'
 }
 </code></pre>
+
+
+## Try to modify this sample
+
+
+
+### Writing a file what it reads
