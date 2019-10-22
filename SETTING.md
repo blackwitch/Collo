@@ -1,5 +1,7 @@
 # SETTING
 
+[SETTING in Korean](SETTING_KR.md)
+
 You'd better read some npm projects before setting your repositories. Because Collo uses other npm project for connecting to databases. 
 
 Here are links for databases using in Collo.
@@ -115,10 +117,3 @@ Let's see a MSSQL Sample.
   <b>"set_query_param"</b> : '@__today as datetime_yyyymmdd, @world as string, @index as int, @name as string, @address as string'
 }
 </code></pre>
-
-
-## Try to modify this sample
-
-
-
-### Writing a file what it reads

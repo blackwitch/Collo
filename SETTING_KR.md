@@ -1,5 +1,7 @@
 # SETTING
 
+[SETTING in English](SETTING.md)
+
 저장소 세팅을 위해 아래 npm projects를 참고하세요. Collo는 여러 저장소에 대한 연결을 위해 다른 npm project를 사용합니다.
 
 아래는 Collo가 여러 저장소 연결을 위해 사용중인 다른 npm 프로젝트의 링크입니다.
