@@ -257,6 +257,7 @@ var interval = setInterval(function(){
 },5000);
 
 process.once('SIGUSR2', shutdown);	//	You can't receive this signal on Windows
+process.on('SIGKILL', shutdown);	//	You can't receive this signal on Windows
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 process.on('uncaughtException', function(err) {
@@ -266,92 +267,98 @@ process.on('uncaughtException', function(err) {
 });
 
 async function shutdown(){
-	clearInterval(interval);
-	if(g_tail != null){
-		g_tail.close();
-	}
+	try{
+		clearInterval(interval);
+		if(g_tail != null){
+			g_tail.close();
+		}
 
-	CollorManager.cancel();
-	for(var k in g_cron_jobs){
-		console.log("JOB CLOSE : ", k );
-		g_cron_jobs[k].cancel();
-		delete g_cron_jobs[k];
-	}
+		CollorManager.cancel();
+		for(var k in g_cron_jobs){
+			console.log("JOB CLOSE : ", k );
+			g_cron_jobs[k].cancel();
+			delete g_cron_jobs[k];
+		}
 
-	while(g_bWaitingSaveData == true){
-		await waitFor(10);
-	}
-	await writeSaveData();
+		while(g_bWaitingSaveData == true){
+			await waitFor(10);
+		}
+		await writeSaveData();
 
-	for(let key of Object.keys(REPO)){
-		if(Array.isArray(REPO[key]) == true){
-			for(let ele of REPO[key]){
-				if(ele.type == "mssql"){
-					if(ele.pool !==undefined){
-						ele.pool.close();
-						console.log(ele.name," pool is closed!");
+		for(let key of Object.keys(REPO)){
+			if(Array.isArray(REPO[key]) == true){
+				for(let ele of REPO[key]){
+					if(ele.type == "mssql"){
+						if(ele.pool !==undefined){
+							ele.pool.close();
+							console.log(ele.name," pool is closed!");
+						}
+					}else if(ele.type == "redis"){
+						if(ele.redis_cli !==undefined){
+							ele.redis_cli.quit();
+							console.log(ele.name," is closed!");
+						}
+					}else if(ele.type == "mysql"){
+						if(ele.pool !==undefined){
+							ele.pool.destroy();
+							console.log(ele.name," pool is closed!");
+						}
+					}else if(ele.type == "elasticsearch"){
+						if(ele.es !==undefined){
+							//ele.es.destroy();	//	There is no close type function. It's needed.
+							console.log(ele.name," pool is closed!");
+						}
+					}else if(ele.type == "s3"){
+						if(ele.aws !==undefined){
+					//		AWS.config.loadFromPath('./aws_config.json');
+							console.log(ele.name," pool is closed!");
+						}
 					}
-				}else if(ele.type == "redis"){
-					if(ele.redis_cli !==undefined){
-						ele.redis_cli.quit();
-						console.log(ele.name," is closed!");
+				}
+			}else{
+				if(REPO[key].type == "mssql"){
+					if(REPO[key].pool !== undefined){
+						REPO[key].pool.close();
+						console.log(REPO[key].name," pool is closed!");
 					}
-				}else if(ele.type == "mysql"){
-					if(ele.pool !==undefined){
-						ele.pool.destroy();
-						console.log(ele.name," pool is closed!");
+				}else if(REPO[key].type == "redis"){
+					if(REPO[key].redis_cli !==undefined){
+						REPO[key].redis_cli.quit();
+						console.log(REPO[key].name," is closed!");
 					}
-				}else if(ele.type == "elasticsearch"){
-					if(ele.es !==undefined){
-						//ele.es.destroy();	//	There is no close type function. It's needed.
-						console.log(ele.name," pool is closed!");
+				}else if(REPO[key].type == "mysql"){
+					if(REPO[key].pool !== undefined){
+						REPO[key].pool.destroy();
+						console.log(REPO[key].name," pool is closed!");
 					}
-				}else if(ele.type == "s3"){
-					if(ele.aws !==undefined){
+				}else if(REPO[key].type == "elasticsearch"){
+					if(REPO[key].es !==undefined){
+						//REPO[key].es.destroy();	//	There is no close type function. It's needed.
+						console.log(REPO[key].name," pool is closed!");
+					}
+				}else if(REPO[key].type == "s3"){
+					if(REPO[key].aws !==undefined){
 				//		AWS.config.loadFromPath('./aws_config.json');
-						console.log(ele.name," pool is closed!");
+						console.log(REPO[key].name," pool is closed!");
 					}
-				}
-			}
-		}else{
-			if(REPO[key].type == "mssql"){
-				if(REPO[key].pool !== undefined){
-					REPO[key].pool.close();
-					console.log(REPO[key].name," pool is closed!");
-				}
-			}else if(REPO[key].type == "redis"){
-				if(REPO[key].redis_cli !==undefined){
-					REPO[key].redis_cli.quit();
-					console.log(REPO[key].name," is closed!");
-				}
-			}else if(REPO[key].type == "mysql"){
-				if(REPO[key].pool !== undefined){
-					REPO[key].pool.destroy();
-					console.log(REPO[key].name," pool is closed!");
-				}
-			}else if(REPO[key].type == "elasticsearch"){
-				if(REPO[key].es !==undefined){
-					//REPO[key].es.destroy();	//	There is no close type function. It's needed.
-					console.log(REPO[key].name," pool is closed!");
-				}
-			}else if(REPO[key].type == "s3"){
-				if(REPO[key].aws !==undefined){
-			//		AWS.config.loadFromPath('./aws_config.json');
-					console.log(REPO[key].name," pool is closed!");
 				}
 			}
 		}
-	}
 
-    server.close(() => {
-        logger.info("Closed out remaining connections");
+	    server.close(() => {
+	        logger.info("Closed out remaining connections");
+	        process.exit(0);
+	    });
+
+	    setTimeout(() => {
+	        logger.info("Could not close connections in time, forcefully shutting down");
+	        process.exit(1);
+	    }, 5000);
+	}catch( e){
+        console.log( e );
+        logger.error(e);
         process.exit(0);
-    });
-
-    setTimeout(() => {
-        logger.info("Could not close connections in time, forcefully shutting down");
-        process.exit(1);
-    }, 5000);
+	}
 }
 //	management
 //////////////////////////////////////////////////////////////////////////

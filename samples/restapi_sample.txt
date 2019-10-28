@@ -1,3 +1,0 @@
-send below sample json data by POST
-
-{"repo_key":"sampleKey", "body":[{"ip":"localhost"},{"ip":"172.31.0.5"}]}

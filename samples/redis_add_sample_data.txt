@@ -1,1 +1,0 @@
-rpush test_key '{"sqn":99, "company":"redis-co", "sales":99000}'
