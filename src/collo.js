@@ -120,6 +120,23 @@ function getSubValueFromObject(object, key){
 async function getS3FileHeader( s3, key, bucket ){
 	return s3.headObject( { Key : key, Bucket: bucket}).promise().then( res => res.ContentLength);
 }
+
+function isJsonFormatString(text) {
+	if(typeof text === "number")
+		return false;
+	else if(typeof text === "object")
+		return false;
+	else if (/^[\],:{}\s]*$/.test(text.replace(/\\["\\\/bfnrtu]/g, '@').
+		replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').
+		replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) 
+	{
+	  	//the json is ok
+	  	return true;
+	}else{
+	  	//the json is not ok
+	  	return false;
+	}
+}
 //	utility
 //////////////////////////////////////////////////////////////////////////
 
@@ -830,9 +847,15 @@ function readData(db, job){
 			listQueryCmd.splice(0,1);
 
 			db.redis_cli[cmd]( listQueryCmd, function(errors, results){
+				console.log(" REDIS READ : ",errors, results, isJsonFormatString(results));
 				if(errors)
 					reject(errors);
-				resolve(results);
+				else{
+					if(isJsonFormatString(results) == true)
+						resolve( JSON.parse(results));
+					else
+						resolve(results);
+				}
 			});
 		}else if(db.type == 'elasticsearch'){
 			if(db.es !== undefined){
