@@ -200,6 +200,12 @@ __Apply__ : It saves what's modified in just memory. And it'll send Collo them. 
 __Delete__ : It'll be applied right away if you confirm to delete. If the reposirory is in use, "Delete" button will be unvisible.
 
 
+## Documents 
+
+[Introduction](https://www.slideshare.net/winninghabit/collo-01-en)
+[Redis to MySQL](https://www.slideshare.net/winninghabit/collo-02-en)
+
+
 ## License infomation
 
 __Collo__ is distributed under the terms and conditions of the MIT license.
