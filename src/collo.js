@@ -1078,8 +1078,14 @@ function parseParam(db, job, param, value){
 		ret = getDatetimeFormat( chk.type, util_date.getNextDay(new Date(),-(param.split('@')[0]*7)) );
 	else if((chk.param.match(/@__monthsago/g) || []).length > 0)
 		ret = getDatetimeFormat( chk.type, util_date.getLastdayOfLastMonth(new Date(),-(param.split('@')[0])) );
-	else if(chk.param == '@__dbname')
+	else if(chk.param == '@__reponame')
 		ret = db.name;
+	else if(chk.param == '@__dbname'){
+		if(db.config === undefined || db.config.database === undefined)
+			ret = "";
+		else
+			ret = db.config.database;
+	}
 	else if((chk.param.match(/@__yesterday_ymdnumber/g) || []).length > 0)
 		ret = util_date.getNextDay(new Date(),-1).yyyymmddINT();
 	else if(chk.param.indexOf('@__lastNumber_') >= 0 || chk.param.indexOf('@__lastInstanceNumberByDay_') >= 0) {
