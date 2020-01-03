@@ -164,42 +164,6 @@ If you want to test on MSSQL or MySQL, make DB and tables with /samples/collo-ms
 Collo creates /src/savedata.json for recording of the job processing. If you want to initialize or handle it, you can delete or modify the file.
 
 
-
-## Management Tool
-
-This tool makes you easy to handle your jobs. It doesn't need to modify repos.json and jobs.json files on console. And it doesn't need to restart Collo after modify these files. Just modify them on management tool and push the "apply" button. It's done. 
-
-Collo has "Dashboard" and "Setting".
-
-
-### Dashboard
-
-There is a empty text control. Collo shows you logs what is going on. And you can clear all text when you push the "Clear" button at the bottom. 
-
-![tool-dashboard](/images/tool-dashboard.png)
-
-
-### Setting 
-
-You can modify, add or delete repositories or jobs. And these are applied on real-time.
-
-![tool-repo](/images/tool-repo.PNG)
-
-Each one repository and job has three buttons.
-
-![tool-button](/images/tool-button.PNG)
-
-Before you do something, All buttons are disable like the upper image. But these are enable when somethings are changed.
-
-![tool-button](/images/tool-apply.PNG)
-
-__Cancel__ : It initializes everything that's changed.
-
-__Apply__ : It saves what's modified in just memory. And it'll send Collo them. And Next, Collo is going to restart all jobs right away. Be careful! If you modify a repository that is in use, a job using the repository could be in trouble.
-
-__Delete__ : It'll be applied right away if you confirm to delete. If the reposirory is in use, "Delete" button will be unvisible.
-
-
 ## Documents 
 
 [Introduction](https://www.slideshare.net/winninghabit/collo-01-en)
