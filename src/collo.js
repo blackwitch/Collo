@@ -1,26 +1,18 @@
 ///////////////////////////////////////////////////////
 //	require & define local variables
-const HTTP_PORT = 10531;
-
 const _ = require('lodash/core');
-const path = require('path');
-const express = require('express');
-const bodyParser = require('body-parser');
 const schedule = require('node-schedule');
 const JSON = require('JSON');
 const JSONStream = require('JSONStream');
-const Tail = require('nodejs-tail');
 const g_pool = require("generic-pool");
 const fs = require('fs');
-
+const path = require('path');
 const redis = require('redis');
 const sql = require('mssql');
 const mysql = require('mysql');
 //const {Client} = require('@elastic/elasticsearch');	//for using secure
 const ES = require('elasticsearch');
-
-const app = express();
-const cors = require('cors');
+const zlib = require('zlib');
 
 const util_date = require('./util_date');
 
@@ -28,7 +20,6 @@ const REPO = require('./repos');
 const JOB = require('./jobs');
 var REPOdata = JSON.parse(JSON.stringify(REPO));
 var JOBdata = JSON.parse(JSON.stringify(JOB));
-const TOOL = require('./tool');
 const logger  =require('./logger');
 
 const grok = require('node-grok').loadDefaultSync();
@@ -38,8 +29,6 @@ var g_cron_jobs = {};
 var g_save_data = {};
 var g_watchingLogDate = '';
 var g_watchingLogFile = "../logs/log-";
-var g_tail = null;
-var g_tailValue = '[' + new Date().yyyymmddtime() + '] RESTART \n';
 var g_restapi_repo = {};
 //	require & define global variables
 ///////////////////////////////////////////////////////
@@ -142,26 +131,7 @@ function isJsonFormatString(text) {
 
 //////////////////////////////////////////////////////////////////////////
 //	initialize 
-const CollorManager = schedule.scheduleJob( "*/5 * * * * *", async function(){
-	logger.info("STATUS/" + new Date().yyyymmddtimedash() + "/OK");
-});
 setInterval(keepAliveForREPO, 60*1000);
-
-app.set('views',path.join(__dirname,'../tool'));
-app.use(express.static('public'));
-app.use(express.static(path.join(__dirname,'../css')));
-app.set('view engine','ejs');
-app.use(cors());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-const server = app.listen(HTTP_PORT, ()=>{	//	no meaning port number!!
-	init();
-	console.log(" START Colloco on port " + HTTP_PORT);
-	logger.info(" START Colloco on port " + HTTP_PORT);
-});
-app.use(function(req,res,next){
-	next();
-});
 
 async function init(){
 	if(REPOdata["console"] === undefined){
@@ -250,31 +220,14 @@ async function setSaveData(jobkey, reponame, datakey, value){
 //	write logs for monitoring
 var interval = setInterval(function(){
 	if(g_watchingLogDate != new Date().yyyymmdddash()){
-		if(g_tail != null){
-			g_tail.close();
-		}
 
-		var fn = g_watchingLogFile + new Date().yyyymmdddash() + ".log";
-		g_tail = new Tail(fn);
-
-		g_tail.on('line',(line) => {
-			if(g_tailValue.length > 10240){
-				g_tailValue = '';
-			}
-			g_tailValue += line+'\n';
-		});
-		g_tail.on('close',() => {
-			logger.warn("Watching file [" + fn + "] was closed!");
-			g_watchingLogDate = '';
-		});
-		g_tail.watch();
 		g_watchingLogDate = new Date().yyyymmdddash();
-		console.log( "WATCHING FILE = ", fn);
+		console.log( "Test = ", fn);
 	}
 },5000);
 
 process.once('SIGUSR2', shutdown);	//	You can't receive this signal on Windows
-process.on('SIGKILL', shutdown);	//	You can't receive this signal on Windows
+//process.on('SIGKILL', shutdown);
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 process.on('uncaughtException', function(err) {
@@ -285,12 +238,7 @@ process.on('uncaughtException', function(err) {
 
 async function shutdown(){
 	try{
-		clearInterval(interval);
-		if(g_tail != null){
-			g_tail.close();
-		}
-
-		CollorManager.cancel();
+		console.log(" Waiting for shutdown!");
 		for(var k in g_cron_jobs){
 			console.log("JOB CLOSE : ", k );
 			g_cron_jobs[k].cancel();
@@ -362,11 +310,6 @@ async function shutdown(){
 			}
 		}
 
-	    server.close(() => {
-	        logger.info("Closed out remaining connections");
-	        process.exit(0);
-	    });
-
 	    setTimeout(() => {
 	        logger.info("Could not close connections in time, forcefully shutting down");
 	        process.exit(1);
@@ -378,165 +321,6 @@ async function shutdown(){
 	}
 }
 //	management
-//////////////////////////////////////////////////////////////////////////
-
-
-//////////////////////////////////////////////////////////////////////////
-//	routes for management
-
-//	send repo & jobs 
-app.route('/').get(function(req,res,next){
-	TOOL.goPage(req, res, REPO, JOB);
-});
-
-//	send logs 
-app.route('/logs').get(function(req,res,next){
-	var ret = _.clone(g_tailValue);
-	if(ret ==''){
-		var fn = g_watchingLogFile + new Date().yyyymmdddash() + ".log";
-		var flushing = fs.openSync(fn, 'r');
-		fs.close(flushing);
-		res.send('');
-	}else{
-		g_tailValue = '';
-		res.send(ret);
-	}
-});
-
-//	receive new repo info and modify repo file AND apply.
-app.post('/add_repo', function(req, res){
-	var bSave = false;
-
-	if(req.body.name !== undefined){
-		if(REPOdata[req.body.name] === undefined){
-			if(req.body.config !== undefined)
-				req.body.config = JSON.parse(req.body.config);
-			REPOdata[req.body.name] = req.body;
-			bSave = true;
-		}
-	}
-	if(bSave == true){
-		write("./repos.json", REPOdata);
-	}
-
-	res.redirect('/?reload=repo');
-});
-
-//	receive new job info and modify job file AND apply.
-app.post('/add_job', function(req, res){
-	var bSave = false;
-
-	{
-		for( var key in req.body){
-			JOBdata[key] = JSON.parse( clearSpecialCharacter(req.body[key]) );
-			bSave = true;
-		}
-	}
-	if(bSave == true){
-		write("./jobs.json", JOBdata);
-	}
-
-	res.redirect('/?reload=repo');
-});
-
-//	delete repo info and modify repo file AND apply.
-app.post('/delete_repo', function(req, res){
-	var bSave = false;
-
-	if(req.body.name !== undefined){
-		var name = req.body.name;
-
-		if(REPOdata[name] !== undefined){
-			delete REPOdata[name];
-			bSave = true;
-		}
-	}
-	if(bSave == true){
-		write("./repos.json", REPOdata);
-	}
-
-	res.redirect('/?reload=repo');
-});
-
-//	delete job info and modify job file AND apply.
-app.post('/delete_job', function(req, res){
-
-	var bSave = false;
-	if(req.body.name !== undefined){
-		var name = req.body.name;
-
-		if(JOBdata[name] !== undefined){
-			delete JOBdata[name];
-			bSave = true;
-		}
-	}
-	if(bSave == true){
-		write("./jobs.json", JOBdata);
-	}
-
-	res.redirect('/?reload=repo');
-});
-
-//	save modified repo, job and apply
-app.post('/save_repojob', function(req,res){
-
-	var repoData = {};
-	var jobData = {};
-	//	apply
-	if(req.body.repo !== undefined){
-		var data = JSON.parse(req.body.repo);
-		var bSaveRepo = false;
-		for(var key in data){
-			if(REPOdata[key] !== undefined){
-				REPOdata[key] = data[key];
-				bSaveRepo = true;
-			}
-		}
-	}
-
-	if(req.body.job !== undefined){
-		var dataJ = JSON.parse(req.body.job);
-		var bSaveJob = false;
-		for(var key in dataJ){
-			if(JOBdata[key] !== undefined){
-				JOBdata[key] = JSON.parse(dataJ[key]);
-				bSaveJob = true;
-			}
-		}
-	}
-
-	if(bSaveRepo == true){
-		write("./repos.json", REPOdata);
-	}
-
-	if(bSaveJob == true){
-		write("./jobs.json", JOBdata);	
-	}
-
-	//	render page
-	res.redirect('/?reload=repo');
-});
-
-app.post('/put', function(req,res){
-	if(req.body !== undefined){
-		var data = JSON.parse( JSON.stringify(req.body));
-		if(data.repo_key === undefined){
-			res.send({'err' : 'It do not have a key value'});		
-		}else{
-			if(g_restapi_repo[data.repo_key] === undefined)
-				g_restapi_repo[data.repo_key] = [];
-			if(Array.isArray(data.body)){
-				for(var idx in data.body){
-					g_restapi_repo[data.repo_key].push( data.body[idx]);
-				}
-			}else{
-				g_restapi_repo[data.repo_key].push( data.body);
-			}
-		}
-	}
-	res.send({'result' : 'OK'});
-});
-//	routes
 //////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////
@@ -706,6 +490,7 @@ async function procJobs( key){
 	}else
 	{
 		logger.error("You have to be set your repository infomation in array even you have just one repogitory.");
+		JOB[key].bProc = 0;
 		return;
 	}
 
@@ -1216,8 +1001,14 @@ function parseQuery(db, job, query_param, query, element){
 				var param = parseParam( db, job, listParam[i] ,element);
 				if(db.type == 'mysql')
 					params.push(param);
-				else
-					query = query.replace('?', param);
+				else{
+					if (typeof param != "string") {
+						param = '' + param;
+					}
+					var nextMarkIdx = query.substr(lastQuestionMarkIndex, query.length).indexOf(PARAM_MARK);
+					query = query.substr(0, lastQuestionMarkIndex + nextMarkIdx) + query.substr(lastQuestionMarkIndex + nextMarkIdx, query.length).replace(PARAM_MARK, param);
+					lastQuestionMarkIndex += nextMarkIdx + param.length;
+				}
 			}
 		}
 	}
@@ -1245,8 +1036,8 @@ function parseName(_name){
 		name = _name.replace("@__today_number", new Date().yyyymmddINT());
 	}else if(_name.indexOf("@__today") != -1 ){
 		name = _name.replace("@__today", new Date().yyyymmdddash());
-	}else if(_name.indexOf("@__yesterday_number") != -1 ){
-		name = _name.replace("@__yesterday_number", util_date.getNextDay(new Date(),-1).yyyymmddINT());
+	}else if(_name.indexOf("@__yesterday_ymdnumber") != -1 ){
+		name = _name.replace("@__yesterday_ymdnumber", util_date.getNextDay(new Date(),-1).yyyymmddINT());
 	}else if(_name.indexOf("@__yesterday") != -1 ){
 		name = _name.replace("@__yesterday", util_date.getNextDay(new Date(),-1).yyyymmdddash());
 	}
@@ -1289,6 +1080,8 @@ function parseParam(db, job, param, value){
 		ret = getDatetimeFormat( chk.type, util_date.getLastdayOfLastMonth(new Date(),-(param.split('@')[0])) );
 	else if(chk.param == '@__dbname')
 		ret = db.name;
+	else if((chk.param.match(/@__yesterday_ymdnumber/g) || []).length > 0)
+		ret = util_date.getNextDay(new Date(),-1).yyyymmddINT();
 	else if(chk.param.indexOf('@__lastNumber_') >= 0 || chk.param.indexOf('@__lastInstanceNumberByDay_') >= 0) {
 		var jobName = getKeyByValue(JOB, job);
 		var key = '';
@@ -1376,3 +1169,5 @@ function parseParam(db, job, param, value){
 }
 //	parameters
 /////////////////////////////////////////////////////////////////////
+
+init();
