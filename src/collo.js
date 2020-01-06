@@ -560,8 +560,8 @@ function readData(db, job){
 								if(job.filter !== undefined && job.filter.add_keyvalue !== undefined){	//	add new key/value or modify if it has filter
 									job.filter.add_keyvalue.forEach((data) => {
 										var key = Object.keys(data)[0];
-										var value = parseParam(db, job, data[key]);
-										ele[key] = value;
+										var ret = parseParam(db, job, data[key]);
+										ele[key] = ret.value;
 									});
 								}
 								var jobName = getKeyByValue(JOB, job);
@@ -604,8 +604,8 @@ function readData(db, job){
 							if(job.filter !== undefined && job.filter.add_keyvalue !== undefined){	//	add new key/value or modify if it has filter
 								job.filter.add_keyvalue.forEach((data) => {
 									var key = Object.keys(data)[0];
-									var value = parseParam(db, job, data[key]);
-									ele[key] = value;
+									var ret = parseParam(db, job, data[key]);
+									ele[key] = ret.value;
 								});
 							}
 							var jobName = getKeyByValue(JOB, job);
@@ -998,16 +998,14 @@ function parseQuery(db, job, query_param, query, element){
 		if(query_param !== undefined){
 			var listParam = query_param.split(',');
 			for(var i=0;i<listParam.length;i++)	{
-				var param = parseParam( db, job, listParam[i] ,element);
+				var ret = parseParam( db, job, listParam[i] ,element);
 				if(db.type == 'mysql')
-					params.push(param);
+					params.push(ret.value);
 				else{
-					if (typeof param != "string") {
-						param = '' + param;
-					}
-					var nextMarkIdx = query.substr(lastQuestionMarkIndex, query.length).indexOf(PARAM_MARK);
-					query = query.substr(0, lastQuestionMarkIndex + nextMarkIdx) + query.substr(lastQuestionMarkIndex + nextMarkIdx, query.length).replace(PARAM_MARK, param);
-					lastQuestionMarkIndex += nextMarkIdx + param.length;
+					var paramLength = ('' + ret.value).length;
+					var nextMarkIdx = query.substr(lastQuestionMarkIndex, query.length).indexOf(PARAM_MARK)-1;
+					query = query.substr(0, lastQuestionMarkIndex + nextMarkIdx) + query.substr(lastQuestionMarkIndex + nextMarkIdx, query.length).replace(PARAM_MARK, ret.value);
+					lastQuestionMarkIndex += nextMarkIdx + paramLength;
 				}
 			}
 		}
@@ -1066,6 +1064,7 @@ function getDatetimeFormat(_type, _date){
 function parseParam(db, job, param, value){
 	var chk = getInputParam(param);
 	var ret = null;
+
 	if(chk.param == '@__today')
 		ret = getDatetimeFormat( chk.type, new Date() );
 	else if(chk.param == '@__yesterday')
@@ -1145,6 +1144,8 @@ function parseParam(db, job, param, value){
 			else if(chk.type == 'binary'){
 				try{
 					ret = Buffer.from(value[name]);	
+					if(db.type != 'mysql')
+						ret = '0x'+Buffer.from(value[name]).toString('hex');
 				}catch(err){
 					console.log( "BUFFER ERROR =", err , console.trace());
 					logger.error(err + ", TRACE : " + console.trace());
@@ -1171,7 +1172,9 @@ function parseParam(db, job, param, value){
 			}
 		}
 	}
-	return ret;
+
+	chk["value"] = ret;
+	return chk;
 }
 //	parameters
 /////////////////////////////////////////////////////////////////////
