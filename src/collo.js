@@ -571,7 +571,11 @@ function readData(db, job){
 											setSaveData(jobName, db.name, sdkey, ele[sdkey]);
 											break;
 										}else{
-											console.log( "there is no set save data = " , jobName, sdkey, ele[sdkey]);
+											if(sdkey == 'paging'){
+												setSaveData(jobName, db.name, sdkey, g_save_data[jobName][db.name][sdkey]);
+												break;	
+											}else
+												console.log( "there is no set save data = " , jobName, sdkey, ele[sdkey]);
 										}
 									}
 								}
@@ -794,6 +798,7 @@ function readData(db, job){
 //	: run "set_query" of jobs
 function writeData(db, job, idx, values){
 	return new Promise((resolve, reject) => {
+
 		//	DO query
 		if(db.type == 'mssql'){
 			var request = new sql.Request(db.pool);
@@ -1051,7 +1056,7 @@ function getDatetimeFormat(_type, _date){
 		ret = new Date(_date).yyyymmddINT();
 	else if(_type == 'datetime_mmddyyyy')
 		ret = '"' + new Date(_date).mmddyyyytimedash() + '"';
-	else if(_type == 'datetime_yyyymmdd')
+	else if(_type == 'datetime_yyyymmdd' || _type=='datetime')
 		ret = '"' + new Date(_date).yyyymmddtimedash() + '"';
 	else
 		ret = '"' + new Date(_date).yyyymmdddash() + '"';
@@ -1087,7 +1092,7 @@ function parseParam(db, job, param, value){
 	}
 	else if((chk.param.match(/@__yesterday_ymdnumber/g) || []).length > 0)
 		ret = util_date.getNextDay(new Date(),-1).yyyymmddINT();
-	else if(chk.param.indexOf('@__lastNumber_') >= 0 || chk.param.indexOf('@__lastInstanceNumberByDay_') >= 0) {
+	else if(chk.param.indexOf('@__paging_') >= 0 || chk.param.indexOf('@__lastNumber_') >= 0 || chk.param.indexOf('@__lastInstanceNumberByDay_') >= 0) {
 		var jobName = getKeyByValue(JOB, job);
 		var key = '';
 		if(chk.param.indexOf('@__lastNumber_') >= 0){
@@ -1111,6 +1116,8 @@ function parseParam(db, job, param, value){
 				g_save_data[jobName][db.name][key].value = 0;
 			}
 		}
+		if(key == 'paging')
+			g_save_data[jobName][db.name][key].value += 1;
 		ret = g_save_data[jobName][db.name][key].value;
 	}else{	//	change from pre_defined_data to a really data you read
 		var name = chk.param.substring(1,chk.param.length);
@@ -1139,13 +1146,17 @@ function parseParam(db, job, param, value){
 				ret = quotes + value[name] + quotes;
 			else if(chk.type=='datetime_mmddyyyy')
 				ret = quotes + new Date(value[name]).mmddyyyytime() + quotes;
-			else if(chk.type=='datetime_yyyymmdd')
+			else if(chk.type=='datetime_yyyymmdd' || chk.type=='datetime')
 				ret = quotes + new Date(value[name]).yyyymmddtime() + quotes;
 			else if(chk.type == 'binary'){
 				try{
-					ret = Buffer.from(value[name]);	
-					if(db.type != 'mysql')
-						ret = '0x'+Buffer.from(value[name]).toString('hex');
+					if(value[name] == null){
+						ret = '0x00';
+					}else{
+						ret = Buffer.from(value[name]);	
+						if(db.type != 'mysql')
+							ret = '0x'+Buffer.from(value[name]).toString('hex');
+					}
 				}catch(err){
 					console.log( "BUFFER ERROR =", err , console.trace());
 					logger.error(err + ", TRACE : " + console.trace());
